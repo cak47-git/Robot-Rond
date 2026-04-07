@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Robot Camera Control</title>
+    <style>
+        body { text-align: center; font-family: Arial; }
+        button { width: 80px; height: 80px; font-size: 30px; margin: 5px; }
+        #latency { margin-top: 20px; font-size: 20px; color: green; }
+    </style>
+</head>
+<body>
+
+<h1>Robot Camera Control</h1>
+
+<img src="{{ url_for('video_feed') }}" width="640"><br><br>
+
+<div>
+    <button onclick="move('w')">⬆</button><br>
+    <button onclick="move('a')">⬅</button>
+    <button onclick="move('stop')">■</button>
+    <button onclick="move('d')">➡</button><br>
+    <button onclick="move('s')">⬇</button>
+</div>
+
+<div id="latency">Latence : 0 ms</div>
+
+<script>
+function move(direction) {
+    const start = performance.now(); // plus précis que Date.now()
+
+    fetch('/move/' + direction + '?t=' + start)
+    .then(response => response.json())
+    .then(data => {
+        const end = performance.now();
+        const latency = end - data.start;
+
+        document.getElementById("latency").innerText =
+            "Latence : " + latency.toFixed(2) + " ms";
+    });
+}
+
+// ==========================
+// CONTROLE CLAVIER
+// ==========================
+document.addEventListener('keydown', function(event) {
+    if(event.key==='w') move('w');
+    if(event.key==='s') move('s');
+    if(event.key==='a') move('a');
+    if(event.key==='d') move('d');
+});
+
+document.addEventListener('keyup', function(event) {
+    move('stop');
+});
+</script>
+
+</body>
+</html>
