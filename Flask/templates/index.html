@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Camera Control</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg-1: #0b1220;
+            --bg-2: #111a2e;
+            --card: rgba(255, 255, 255, 0.08);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --text: #f3f7ff;
+            --muted: #aab6d3;
+            --accent: #4da3ff;
+            --accent-2: #6ef3d6;
+            --danger: #ff5d73;
+            --shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: Arial, Helvetica, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top left, #18315a 0%, transparent 35%),
+                radial-gradient(circle at top right, #0f4c45 0%, transparent 30%),
+                linear-gradient(135deg, var(--bg-1), var(--bg-2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        .app {
+            width: min(1200px, 100%);
+            display: grid;
+            grid-template-columns: 1.4fr 0.9fr;
+            gap: 24px;
+        }
+
+        .panel {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .camera-panel {
+            padding: 22px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .title-block h1 {
+            font-size: 30px;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+        }
+
+        .title-block p {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.10);
+            padding: 12px 16px;
+            border-radius: 999px;
+            font-size: 14px;
+            color: var(--text);
+        }
+
+        .status-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #42ff8c;
+            box-shadow: 0 0 12px rgba(66,255,140,0.75);
+        }
+
+        .camera-frame {
+            position: relative;
+            overflow: hidden;
+            border-radius: 22px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: #060b14;
+        }
+
+        .camera-frame img {
+            width: 100%;
+            display: block;
+            aspect-ratio: 4 / 3;
+            object-fit: cover;
+            background: #000;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(to top, rgba(0,0,0,0.35), transparent 20%),
+                linear-gradient(to bottom, rgba(0,0,0,0.25), transparent 18%);
+        }
+
+        .camera-label {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(10, 15, 28, 0.7);
+            border: 1px solid rgba(255,255,255,0.08);
+            font-size: 13px;
+            letter-spacing: 0.4px;
+        }
+
+        .camera-corner {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border: 2px solid rgba(110, 243, 214, 0.9);
+        }
+
+        .corner-tl { top: 14px; left: 14px; border-right: none; border-bottom: none; border-radius: 8px 0 0 0; }
+        .corner-tr { top: 14px; right: 14px; border-left: none; border-bottom: none; border-radius: 0 8px 0 0; }
+        .corner-bl { bottom: 14px; left: 14px; border-right: none; border-top: none; border-radius: 0 0 0 8px; }
+        .corner-br { bottom: 14px; right: 14px; border-left: none; border-top: none; border-radius: 0 0 8px 0; }
+
+        .info-row {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+
+        .info-card {
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .info-card .label {
+            font-size: 13px;
+            color: var(--muted);
+            margin-bottom: 8px;
+        }
+
+        .info-card .value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .control-panel {
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .section-title h2 {
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .section-title p {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .command-display {
+            margin-top: 18px;
+            padding: 18px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .command-display .label {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .command-display .value {
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .pad-wrapper {
+            margin-top: 22px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .pad {
+            display: grid;
+            grid-template-columns: repeat(3, 96px);
+            grid-template-rows: repeat(3, 96px);
+            gap: 14px;
+        }
+
+        .ctrl-btn {
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 34px;
+            font-weight: bold;
+            color: var(--text);
+            background: linear-gradient(180deg, rgba(255,255,255,0.13), rgba(255,255,255,0.06));
+            border: 1px solid rgba(255,255,255,0.12);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.12),
+                0 10px 24px rgba(0,0,0,0.22);
+            transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .ctrl-btn:hover {
+            transform: translateY(-2px);
+            border-color: rgba(77, 163, 255, 0.55);
+        }
+
+        .ctrl-btn:active,
+        .ctrl-btn.active {
+            transform: scale(0.97);
+            background: linear-gradient(180deg, rgba(77,163,255,0.35), rgba(77,163,255,0.18));
+            border-color: rgba(77, 163, 255, 0.8);
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.15),
+                0 0 0 4px rgba(77,163,255,0.12),
+                0 8px 20px rgba(0,0,0,0.28);
+        }
+
+        .stop-btn {
+            background: linear-gradient(180deg, rgba(255,93,115,0.28), rgba(255,93,115,0.12));
+            border-color: rgba(255,93,115,0.35);
+        }
+
+        .stop-btn:hover {
+            border-color: rgba(255,93,115,0.7);
+        }
+
+        .key-hints {
+            margin-top: 22px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .hint {
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .footer-note {
+            margin-top: 24px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 980px) {
+            .app {
+                grid-template-columns: 1fr;
+            }
+
+            .pad {
+                grid-template-columns: repeat(3, 84px);
+                grid-template-rows: repeat(3, 84px);
+            }
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 14px;
+            }
+
+            .title-block h1 {
+                font-size: 24px;
+            }
+
+            .info-row {
+                grid-template-columns: 1fr;
+            }
+
+            .pad {
+                grid-template-columns: repeat(3, 76px);
+                grid-template-rows: repeat(3, 76px);
+                gap: 10px;
+            }
+
+            .ctrl-btn {
+                font-size: 28px;
+                border-radius: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app">
+
+        <section class="panel camera-panel">
+            <div class="topbar">
+                <div class="title-block">
+                    <h1>Robot Camera Control</h1>
+                    <p>Interface de pilotage en direct avec retour vidéo et contrôle clavier.</p>
+                </div>
+
+                <div class="status">
+                    <span class="status-dot"></span>
+                    <span>Connexion active</span>
+                </div>
+            </div>
+
+            <div class="camera-frame">
+                <img src="{{ url_for('video_feed') }}" alt="Flux caméra du robot">
+                <div class="camera-overlay"></div>
+                <div class="camera-label">LIVE FEED</div>
+
+                <div class="camera-corner corner-tl"></div>
+                <div class="camera-corner corner-tr"></div>
+                <div class="camera-corner corner-bl"></div>
+                <div class="camera-corner corner-br"></div>
+            </div>
+
+            <div class="info-row">
+                <div class="info-card">
+                    <div class="label">Mode</div>
+                    <div class="value">Téléopération</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">Commande active</div>
+                    <div class="value" id="miniStatus">STOP</div>
+                </div>
+                <div class="info-card">
+                    <div class="label">Contrôle</div>
+                    <div class="value">W / A / S / D</div>
+                </div>
+            </div>
+        </section>
+
+        <aside class="panel control-panel">
+            <div>
+                <div class="section-title">
+                    <h2>Pilotage</h2>
+                    <p>Utilise les boutons ci-dessous ou le clavier pour déplacer ton robot en temps réel.</p>
+                </div>
+
+                <div class="command-display">
+                    <div class="label">État actuel</div>
+                    <div class="value" id="mainStatus">STOP</div>
+                </div>
+
+                <div class="pad-wrapper">
+                    <div class="pad">
+                        <div></div>
+                        <button class="ctrl-btn" data-dir="w">⬆</button>
+                        <div></div>
+
+                        <button class="ctrl-btn" data-dir="a">⬅</button>
+                        <button class="ctrl-btn stop-btn" data-dir="stop">■</button>
+                        <button class="ctrl-btn" data-dir="d">➡</button>
+
+                        <div></div>
+                        <button class="ctrl-btn" data-dir="s">⬇</button>
+                        <div></div>
+                    </div>
+                </div>
+
+                <div class="key-hints">
+                    <div class="hint">W = Avancer</div>
+                    <div class="hint">S = Reculer</div>
+                    <div class="hint">A = Gauche</div>
+                    <div class="hint">D = Droite</div>
+                    <div class="hint">Relâcher = Stop</div>
+                </div>
+            </div>
+
+            <div class="footer-note">
+                Astuce : si tu contrôles le robot au clavier, clique d’abord sur la page pour t’assurer que la fenêtre a bien le focus.
+            </div>
+        </aside>
+
+    </div>
+
+    <script>
+        let currentDirection = "stop";
+        let pressedKeys = new Set();
+
+        const statusMap = {
+            w: "AVANCE",
+            s: "RECULE",
+            a: "GAUCHE",
+            d: "DROITE",
+            stop: "STOP"
+        };
+
+        const mainStatus = document.getElementById("mainStatus");
+        const miniStatus = document.getElementById("miniStatus");
+        const buttons = document.querySelectorAll(".ctrl-btn");
+
+        function updateStatus(direction) {
+            const text = statusMap[direction] || "STOP";
+            mainStatus.textContent = text;
+            miniStatus.textContent = text;
+
+            buttons.forEach(btn => btn.classList.remove("active"));
+
+            const activeBtn = document.querySelector(`.ctrl-btn[data-dir="${direction}"]`);
+            if (activeBtn) {
+                activeBtn.classList.add("active");
+            }
+        }
+
+        function move(direction) {
+            if (currentDirection === direction) return;
+
+            currentDirection = direction;
+            updateStatus(direction);
+
+            fetch('/move/' + direction).catch(error => {
+                console.log("Erreur requête :", error);
+            });
+        }
+
+        function handlePress(direction) {
+            move(direction);
+        }
+
+        function handleRelease() {
+            move('stop');
+        }
+
+        buttons.forEach(button => {
+            const dir = button.dataset.dir;
+
+            button.addEventListener("mousedown", () => handlePress(dir));
+            button.addEventListener("mouseup", handleRelease);
+            button.addEventListener("mouseleave", handleRelease);
+
+            button.addEventListener("touchstart", (e) => {
+                e.preventDefault();
+                handlePress(dir);
+            }, { passive: false });
+
+            button.addEventListener("touchend", (e) => {
+                e.preventDefault();
+                handleRelease();
+            }, { passive: false });
+
+            button.addEventListener("click", (e) => {
+                if (dir === "stop") {
+                    e.preventDefault();
+                    move("stop");
+                }
+            });
+        });
+
+        document.addEventListener('keydown', function(event) {
+            const key = event.key.toLowerCase();
+
+            if (['w', 'a', 's', 'd'].includes(key)) {
+                pressedKeys.add(key);
+                move(key);
+            }
+        });
+
+        document.addEventListener('keyup', function(event) {
+            const key = event.key.toLowerCase();
+            pressedKeys.delete(key);
+
+            if (pressedKeys.size === 0) {
+                move('stop');
+            } else {
+                const lastKey = Array.from(pressedKeys).pop();
+                move(lastKey);
+            }
+        });
+
+        window.addEventListener('blur', function() {
+            pressedKeys.clear();
+            move('stop');
+        });
+
+        window.addEventListener('beforeunload', function() {
+            pressedKeys.clear();
+            move('stop');
+        });
+
+        updateStatus("stop");
+    </script>
+
+</body>
+</html>
+
+
+
+
+
